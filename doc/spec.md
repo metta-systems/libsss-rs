@@ -382,11 +382,11 @@ Non-FEC packet payload consists of:
  * Zero-padding. This padding produces a total message length that is a multiple of 16 bytes, at least 16 bytes and at most **1168 bytes**. This accounts for 40 bytes of IPv6 header, 8 bytes of UDP header and 64 bytes of packet header and cryptobox overhead. The total size of the datagram is thus limited to 1280 bytes - the 1280-byte datagrams are allowed by IPv6 on all networks.
 
 Note: When describing data fields the C-like type notation is used, where
- * `uint8_t` specifies unsigned 8-bit quantity (an octet)
- * `big_uint16_t` specifies unsigned 16-bit quantity in network (big-endian) order
- * `big_uint32_t` specifies unsigned 32-bit quantity in network (big-endian) order
- * `big_uint48_t` specifies unsigned 48-bit quantity in network (big-endian) order
- * `big_uint64_t` specifies unsigned 64-bit quantity in network (big-endian) order
+ * `u8` specifies unsigned 8-bit quantity (an octet)
+ * `big_u16` specifies unsigned 16-bit quantity in network (big-endian) order
+ * `big_u32` specifies unsigned 32-bit quantity in network (big-endian) order
+ * `big_u48` specifies unsigned 48-bit quantity in network (big-endian) order
+ * `big_u64` specifies unsigned 64-bit quantity in network (big-endian) order
 
 #### 4.1.1 Packet header format
 
@@ -403,7 +403,7 @@ Figure 3: Packet header
 1,2,3,4 :  2,4,6,8 : Packet sequence number (depending on ss bits)
 ```
 
-* Flags `uint8_t`:
+* Flags `u8`:
   * v - version field present
   * g - FEC group present
   * ss - size of packet sequence number field
@@ -412,9 +412,9 @@ Figure 3: Packet header
     * 10 = 6 bytes
     * 11 = 8 bytes
   * f - this is last FEC group packet, in this case packet contains XOR over all zero-padded previous packets in given FEC group (bit g must also be set)
-* Protocol version number (optional, `big_uint16_t` when present)
-* FEC group number (optional, `uint8_t` when present)
-* Packet sequence number (variable size, either `big_uint16_t`, `big_uint32_t`, `big_uint48_t` or `big_uint64_t`)
+* Protocol version number (optional, `big_u16` when present)
+* FEC group number (optional, `u8` when present)
+* Packet sequence number (variable size, either `big_u16`, `big_u32`, `big_u48` or `big_u64`)
 
 If FEC is not used, the FEC group byte is not needed. The **g** bit serves as FEC enable flag.
 
@@ -599,8 +599,8 @@ ofs : sz : description
   2 :  2 : Num lost packets
   4 :  2 : Receive window size
 ```
- * Num lost packets `big_uint16_t`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
- * Receive window `big_uint16_t`: The TCP receive window.
+ * Num lost packets `big_u16`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
+ * Receive window `big_u16`: The TCP receive window.
 
 ##### 4.2.6.2 Congestion control feedback for CurveCP Chicago
 
@@ -616,10 +616,10 @@ ofs : sz : description
  10 :  4 : RTT Average
  14 :  4 : RTT Mean deviation
 ```
- * Highest RTT `big_uint32_t`: **@todo**
- * Lowest RTT `big_uint32_t`: **@todo**
- * Average RTT `big_uint32_t`: **@todo**
- * RTT mean deviation `big_uint32_t`: **@todo**
+ * Highest RTT `big_u32`: **@todo**
+ * Lowest RTT `big_u32`: **@todo**
+ * Average RTT `big_u32`: **@todo**
+ * RTT mean deviation `big_u32`: **@todo**
 
 ##### 4.2.6.3 Congestion control feedback for UDP LEDBAT
 
@@ -683,10 +683,10 @@ ofs : sz : description
   9 :  2 : Reason phrase length R
  11 :  R : Reason phrase (variable length, may be 0)
 ```
- * Stream Id `big_uint32_t`: LSID of the stream (in sender's ID space).
- * Error code `big_uint32_t`: Error code which indicates why the stream is being closed. (**@todo Add a table of error codes!**)
- * Reason phrase length `big_uint16_t`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
- * Reason phrase: A UTF-8 encoded optional human-readable explanation for why the connection was closed. It is **not** zero-terminated.
+ * Stream Id `big_u32`: LSID of the stream (in sender's ID space).
+ * Error code `big_u32`: Error code which indicates why the stream is being closed. (**@todo Add a table of error codes!**)
+ * Reason phrase length `big_u16`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
+ * Reason phrase: A UTF-8 encoded optional human-readable explanation for why the connection was closed. It is zero-terminated if exists, to make handling in C-like languages simpler.
 
 #### 4.2.9 CLOSE frame
 
@@ -724,18 +724,18 @@ ofs : sz : description
   1 :  2 : Number of settings N
   3 :  X : Settings tags
 ```
- * Number of settings `big_uint16_t`: Number of setting pairs in this frame
- * Each setting consists of `big_uint16_t` tag and associated value.
+ * Number of settings `big_u16`: Number of setting pairs in this frame
+ * Each setting consists of `big_u16` tag and associated value.
 
 List of negotiation tags:
 ```
  Tag | Meaning                      | Value Type
 -----+------------------------------+--------------
-   1 | FEC                          | uint8_t
-   2 | Congestion control algorithm | big_uint16_t
+   1 | FEC                          | u8
+   2 | Congestion control algorithm | big_u16
 ```
- * For FEC the `uint8_t` value is treated as a boolean flag, with 0 indicating NO and 1 indicating YES for FEC use in this session.
- * For CC the `big_uint16_t` value is treated as an enum of used CC algorithms with following values:
+ * For FEC the `u8` value is treated as a boolean flag, with 0 indicating NO and 1 indicating YES for FEC use in this session.
+ * For CC the `big_u16` value is treated as an enum of used CC algorithms with following values (these values match DECONGESTION frame sub-types):
    * 0 - no CC
    * 1 - TCP CUBIC
    * 2 - Chicago
@@ -839,7 +839,7 @@ Figure X: USID structure
 ```
  ofs : sz : description
    0 : 16 : cryptographic half-channel identifier
-  16 :  8 : big_uint64_t stream counter
+  16 :  8 : big_u64 stream counter
 TOTAL: 24 bytes
 ```
 
