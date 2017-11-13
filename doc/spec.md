@@ -161,7 +161,7 @@ To better support an efficient and tight binding with an application, the follow
  * Congestion window size (expressed in packets)
  * Queue size (packets that have been formed, but not yet emitted over a wire)
  * Bytes in queue
- * Per-stream queue size (either bytes per stream, or unsent packets, both??)
+ * Per-stream queue size (either bytes per stream, or unsent packets, or both??)
 
 Notification should also be provided, or access for the following events (granularity of notification is TBD, and there should be no requirement on timeliness of the notifications, but any notification or status should include a best estimate of when the actual event took place):
  * Queue size has dropped to zero
@@ -174,7 +174,7 @@ Each packet is distinguished by its magic value. Of the below types, all negotia
 
 ```
 packet
-+--negotiation
++--negotiation types
    +--HELLO
    +--COOKIE
    +--INITIATE
@@ -199,7 +199,7 @@ The INITIATE packet from the initiator must contain proper responder cookie or b
 
 First Initiator message - HELLO packet - must be bigger from the connecting initiator than the responder COOKIE reply to reduce amplification attack possibility.
 
-The responder doesn't retransmit its first packet, the COOKIE packet. The initiator is responsible for repeating its HELLO packet to ask for another COOKIE packet.
+The responder doesn't retransmit its first sent packet, the COOKIE packet. The initiator is responsible for repeating its HELLO packet to ask for another COOKIE packet.
 
 #### 3.1.2 Replay Attacks Protection
 
@@ -231,7 +231,7 @@ Negotiation protocol uses 3-way message exchange to verify peer's identity and s
 
 ```
 ofs : sz  : description
-0   : 16  : compressed nonce, prefix with "minute-k"
+0   : 16  : compressed nonce, prefix with "minute-k" to get full nonce
 16  : 80  : secretbox under minute-key, containing:
     : ofs : sz  :
     : 0   : 32  : initiator short-term public key I'
@@ -243,14 +243,14 @@ When the minute key expires, the cookie could not be decrypted and will make con
 
 #### 3.2.2 HELLO packet format
 
-First packet sent by the initiator willing to establish a connection. This packet is artificially padded with zeros to make it larger than the response packet, reducing amplification attacks possibility.
+First packet is sent by the initiator willing to establish a connection. This packet is artificially padded with zeros to make it larger than the response packet, reducing amplification attacks possibility.
 
 ```
 ofs : sz  : description
 0   : 8   : magic
 8   : 32  : initiator short-term public key I'
 40  : 64  : zero
-104 : 8   : compressed nonce, prefix with "cUVVYcp-CLIENT-h"
+104 : 8   : compressed nonce, prefix with "cUVVYcp-CLIENT-h" to get full nonce
 112 : 80  : box I'->R containing:
     : ofs : sz  :
     : 0   : 32  : initiator long-term public key I (for pre-auth)
@@ -267,11 +267,11 @@ In response, responder encodes initiator's short-term public key `I'` and own sh
 ```
 ofs : sz  : description
 0   : 8   : magic
-8   : 16  : compressed nonce, prefix with "cURVEcpk"
+8   : 16  : compressed nonce, prefix with "cUVVYcpk" to get full nonce
 24  : 144 : box R->I' containing:
     : ofs : sz  :
     : 0   : 32  : responder short-term public key R'
-    : 32  : 96  : Responder Cookie (@sa 3.2.1)
+    : 32  : 96  : Responder Cookie (see section 3.2.1)
 TOTAL: 168 bytes
 ```
 
@@ -286,11 +286,11 @@ ofs : sz    : description
 0   : 8     : magic
 8   : 32    : initiator short-term public key I'
 40  : 96    : Responder Cookie (@sa 3.2.1)
-136 : 8     : compressed nonce, prefix with "cURVEcp-CLIENT-i"
+136 : 8     : compressed nonce, prefix with "cUVVYcp-CLIENT-i" to get full nonce
 144 : 112+M : box I'->R' containing:
 ofs :   ofs : sz  :
 144 :   0   : 32  : initiator long-term public key I
-176 :   32  : 16  : compressed nonce, prefix with "cURVEcpv"
+176 :   32  : 16  : compressed nonce, prefix with "cUVVYcpv" to get full nonce
 192 :   48  : 48  : box I->R containing Vouch subpacket:
             : ofs : sz  :
             : 0   : 32  : initiator short-term public key I'
@@ -308,7 +308,7 @@ Responder and initiator message packets differ only in the kind of short term ke
 ofs : sz   : description
 0   : 8    : magic
 8   : 32   : initiator short-term public key I'
-40  : 8    : compressed nonce, prefix with "cURVEcp-CLIENT-m"
+40  : 8    : compressed nonce, prefix with "cUVVYcp-CLIENT-m" to get full nonce
 48  : 16+M : box I'->R' containing:
     : ofs  : sz  :
     : 0    : M   : message
@@ -323,7 +323,7 @@ M size is in multiples of 16 between 48 and 1088 bytes.
 ofs : sz   : description
 0   : 8    : magic
 8   : 32   : responder short-term public key R'
-40  : 8    : compressed nonce, prefix with "cURVEcp-SERVER-m"
+40  : 8    : compressed nonce, prefix with "cUVVYcp-SERVER-m" to get full nonce
 48  : 16+M : box R'->I' containing:
     : ofs  : sz  :
     : 0    : M   : message
@@ -416,7 +416,7 @@ Figure 3: Packet header
 * FEC group number (optional, `uint8_t` when present)
 * Packet sequence number (variable size, either `big_uint16_t`, `big_uint32_t`, `big_uint48_t` or `big_uint64_t`)
 
-If FEC is not used, the FEC group byte is not needed. The g bit serves as FEC enable flag.
+If FEC is not used, the FEC group byte is not needed. The **g** bit serves as FEC enable flag.
 
 Shortest packet header is thus only 3 bytes long: zero flags and 2-byte packet sequence number.
 
