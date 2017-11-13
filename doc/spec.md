@@ -833,7 +833,7 @@ Streams have a unique ID, used to distinguish this stream after switching to a n
 
 ### Stream IDs - USID
 
-SSS assigns each logical stream a permanent Unique Stream Identifier (USID) when the stream is first created, and uses this identifier to refer to the stream if it becomes necessary to detach the stream from its original channel or migrate it to another channel. A USID consists of two components, a 16-byte cryptographic half-channel identifier and a 64-bit stream counter.
+SSS assigns each logical stream a permanent Unique Stream Identifier (USID) when the stream is first created, and uses this identifier to refer to the stream if it becomes necessary to detach the stream from its original channel or migrate it to another channel. A USID consists of two components, a 128-bit cryptographic half-channel identifier and a 64-bit stream counter.
 
 Figure X: USID structure
 ```
