@@ -279,7 +279,7 @@ TOTAL: 168 bytes
 
 When Initiate packet is accepted, starting a session, cookie must be placed into a cache and cleaned when minute key is rotated to avoid replay attacks.
 
-@todo Require a congestion control SETTINGS frame inside INITIATE message before sending any stream data.
+A congestion control SETTINGS frame is required inside INITIATE message before sending any stream data (see section 4 for details).
 
 ```
 ofs : sz    : description
@@ -818,9 +818,10 @@ Frame assembly needs to account for both channel and stream layers requests.
 - Layer: Framing
 
 
+#### 4.3.11 Fitting frames in the packet
 
-Trying to fit: if higher-priority buffer does not fit into current packet, it is either split 
-if possible or postponed to the next packet with increased priority. Priority is increased to eventually put this frame first in the packet or signal impossibility of sending that frame.
+
+Trying to fit: if higher-priority buffer does not fit into current packet, it is either split or postponed to the next packet with increased priority. Priority is increased to eventually put this frame first in the packet or signal impossibility of sending that frame.
 
 
 ## 5 Stream Protocol
