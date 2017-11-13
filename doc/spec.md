@@ -346,7 +346,7 @@ For packet types:
  * HELLO - "qVNq5xLh"
  * COOKIE - "rl3Anmxk"
  * INITIATE - "qVNq5xLi"
- * MESSAGE - "rl3q5xLm"
+ * MESSAGE - "rl3q5xLm" **@todo** this could be completely removed?
  * INITIATE_MESSAGE - "qVNq5xLo"
 
 ## 4 Channel Protocol
