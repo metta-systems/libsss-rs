@@ -764,6 +764,7 @@ on the priority and urgency of sending them out.
 
 - Send higher priority streams first
 - Distribute bandwidth approximately equally between same-priority streams
+- Prioritise control messages to maintain stream hierarchy integrity
 - Prioritise ACK frames to ensure progress is made
 - Establishing lower-priority streams may be postponed
 
