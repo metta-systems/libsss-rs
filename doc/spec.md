@@ -95,27 +95,27 @@ Figure 1: Protocol Architecture ([advanced diagram](https://dl.dropboxuserconten
 
 Application Protocol: data streams
   - long term keys
-  - `sss::host`
+  - `sss::Host`
 
 Stream Protocol:
   - sending mux/demux (multiple app streams with priorities)
   - data retransmission and congestion control
   - distinguish real-time and background data
   - special streams for datagrams (dg stream, audio stream, video stream)
-  - `sss::stream`
+  - `sss::Stream`
 
 Channel Protocol: curvecp-like
   - short term keys
   - packet end-to-end encryption
   - forward secrecy
-  - `sss::channel`
+  - `sss::Channel`
 
 Pluggable congestion control: e.g. LEDBAT for file sync, Chicago for active sessions etc.
-  - `sss::decongestion`
+  - `sss::Decongestion`
 
 Socket Protocol level:
   - receive datagrams and demux them to channels
-  - `uia::comm::socket` aka `boost::asio::udp`
+  - `uia::comm::Socket`
 
 ### 2.1 Interface Abstractions
 
