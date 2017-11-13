@@ -434,18 +434,18 @@ Frames are inside the channel message cryptobox, not visible to any eavesdropper
 
 #### 4.2.1 Frame types
 ```
- Type value | Frame type
-------------+------------------
-          0 | EMPTY
-          1 | STREAM/ATTACH
-          2 | ACK
-          3 | PADDING
-          4 | DECONGESTION
-          5 | DETACH
-          6 | RESET
-          7 | CLOSE
-          8 | SETTINGS
-          9 | PRIORITY
+ Type value | Frame type       | Priority
+------------+------------------+----------
+          0 | EMPTY            | lowest
+          1 | PADDING          |
+          2 | STREAM/ATTACH    |
+          3 | CLOSE            |
+          4 | DETACH           |
+          5 | DECONGESTION     |
+          6 | PRIORITY         |
+          7 | RESET            |
+          8 | ACK              |
+          9 | SETTINGS         | highest
 ```
 
 #### 4.2.2 EMPTY frame
@@ -459,7 +459,26 @@ Figure N: Empty frame layout
 Empty frame can be used to complete padding where PADDING frame doesn't fit. I.e. in 1- and 2-byte
 remainders. It has lowest priority and PADDING frame is preferred.
 
-#### 4.2.3 STREAM frame
+#### 4.2.3 PADDING frame
+
+Padding frame indicates padding data within a packet, used to counter traffic analysis attacks. Ideally all packets should be padded to have same final length of 1280 bytes. However, in case of slow connection it may be preferential to not pad the data packets or pad them to a shorter common length.
+Padding frame contents may be anything and are simply ignored. It is recommended to explicitly initialize this padding data area with either random or zero bytes and not leave any old data that might leak information.
+The receiver is *advised to* simply skip over this data without trying to interpret or save it in any way. After processing the packet, packet memory *should* be zeroed.
+
+Take note of the rounding requirements - all padding together *must* pad message size to an integer multiple of 16 bytes.
+
+Figure 5: Padding frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (1 - PADDING)
+  1 :  2 : Length of padding L
+  3 :  L : Padding data
+```
+
+Padding packet may be as small as 3 bytes - type byte and length field, which is zero in this case.
+
+#### 4.2.4 STREAM frame
 
 Stream frame is used to transfer data on each individual stream. It also serves as an ATTACH packet
 to initiate a new stream.
@@ -467,7 +486,7 @@ to initiate a new stream.
 Figure N: Stream frame layout
 ```
          ofs :                  sz : description
-           0 :                   1 : Frame type (1 - STREAM)
+           0 :                   1 : Frame type (2 - STREAM)
            1 :                   2 : Flags (niuooodf0000000r)
            3 :                   4 : Stream ID
            7 :                   4 : Parent Stream ID (optional, when INIT (i) bit is set)
@@ -510,14 +529,168 @@ When stream offset is not specified, it is considered to be zero. This is useful
 
 When data length is missing, data extends until the end of this packet and no other frames are present.
 
-#### 4.2.4 ACK frame
+#### 4.2.5 CLOSE frame
+
+Close channel.
+
+**@todo Immediate close and non-immediate (goaway) close?**
+
+Figure 13: Close frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (3 - CLOSE)
+  1 :  4 : Error code
+  5 :  2 : Reason phrase length R
+  7 :  R : Reason phrase (variable length, may be 0)
+7+R :  X : Final ACK frame (variable length)
+```
+
+* Error code `big_u32`: Error code which indicates why the connection is being closed.
+* Reason phrase length `big_u16`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
+* Reason phrase: An optional human-readable explanation for why the connection was closed.
+* AckFrame: A final ack frame, letting the peer know which packets had been received at the time the connection was closed. A complete ACK frame is contained within this field and can be parsed with normal frame parser.
+
+#### 4.2.6 DETACH frame
+
+Detach frame allows stream to detach from current channel without shutting down the stream. Detaching informs the other side that this stream should not be torn down, but it will not send more data on this channel. Stream may be subsequently reattached, if needed, to this or some other channel. The stream is NOT closed or half-closed after detach, however it cannot be used for data transfer until re-attached.
+
+Detach frame only contains LSID of stream that will be detached.
+
+Figure 11: Detach frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (4 - DETACH)
+  1 :  4 : Stream Local ID (LSID) in sender ID space
+```
+
+* Stream Local ID `big_u32`: LSID of the stream to detach (in sender's ID space)
+
+#### 4.2.7 DECONGESTION frame
+
+Decongestion feedback frame contents are specific to chosen decongestion method in the channel. Frame format for several implemented methods will be listed here.
+
+Figure 6: Decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype
+  2 :  X : Method specific contents
+```
+
+##### 4.2.7.1 Congestion control feedback for TCP Cubic
+
+Similar to TCP protocol, packet loss and receive window size are provided.
+
+Figure 7: TCP decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (1 - TCP CUBIC)
+  2 :  2 : Num lost packets
+  4 :  2 : Receive window size
+```
+ * Num lost packets `big_u16`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
+ * Receive window `big_u16`: The TCP receive window.
+
+##### 4.2.7.2 Congestion control feedback for CurveCP Chicago
+
+Chicago updates with RTT times as seen by the far end. This is not required for operation of Chicago protocol, which handles everything on the near side, but is included for complete information for the far end.
+
+Figure 8: Chicago decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (2 - Chicago)
+  2 :  4 : RTT High
+  6 :  4 : RTT Low
+ 10 :  4 : RTT Average
+ 14 :  4 : RTT Mean deviation
+```
+ * Highest RTT `big_u32`: **@todo**
+ * Lowest RTT `big_u32`: **@todo**
+ * Average RTT `big_u32`: **@todo**
+ * RTT mean deviation `big_u32`: **@todo**
+
+##### 4.2.7.3 Congestion control feedback for UDP LEDBAT
+
+Figure 9: LEDBAT decongestion frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  0 :  1 : Type
+  1 :  1 : Subtype (3 - LEDBAT)
+  .......
+```
+
+**@todo**
+
+##### 4.2.7.4 Congestion control feedback for WebRTC Inter-arrival
+
+Figure 10: Inter-arrival decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (4 - Inter-arrival)
+  2 :  2 : Num lost packets
+  4 :  1 : Received
+  5 :  6 : Smallest Received Packet
+ 11 :  8 : Smallest Delta Time
+ 19 :  2 : Packet Delta
+ 21 :  4 : Packet Time Delta
+```
+ * Num lost packets `big_u16`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
+ * Received `u8`: Number of received packets in this update.
+ * Smallest Received Packet `big_u48`: The lower 48 bits of the smallest sequence number represented in this update.
+ * Smallest Delta Time `big_u64`: Delta time from connection creation when the above packet was received.
+ * Packet Delta `big_u16`: Sequence number delta from the Smallest Received Packet. Always followed immediately by a corresponding Packet Time Delta.
+ * Packet Time Delta `big_u32`: Time delta from smallest time when the preceding packet sequence number was received.
+
+#### 4.2.8 PRIORITY frame
+
+PRIORITY frame indicates to the receiver a priority of processing frame data for a given stream.
+It is only a hint. The receiver should make best effort to process given stream's data in accordance with relative priority given (streams with priority 0 should always be processed first, then streams with priority 1 and so on).
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (6 - PRIORITY)
+  1 :  4 : Stream Local ID (LSID) in sender ID space
+  5 :  4 : Priority value
+```
+
+* Priority value is a `big_u32` with value 0 meaning maximum stream priority and maximum 32-bit unsigned integer value for minimum stream priority.
+
+#### 4.2.9 RESET frame
+
+Abort stream.
+
+The RESET frame allows for abnormal termination of a stream. When sent by the creator of a stream, it indicates the creator wishes to cancel the stream. When sent by the receiver of a stream, it indicates an error or that the receiver did not want to accept the stream, so the stream should be closed.
+
+Figure 12: Reset frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (7 - RESET)
+  1 :  4 : Stream Local ID (LSID) in sender ID space
+  5 :  4 : Error code
+  9 :  2 : Reason phrase length R
+ 11 :  R : Reason phrase (variable length, may be 0)
+```
+ * Stream Id `big_u32`: LSID of the stream (in sender's ID space).
+ * Error code `big_u32`: Error code which indicates why the stream is being closed. (**@todo Add a table of error codes!**)
+ * Reason phrase length `big_u16`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
+ * Reason phrase: A UTF-8 encoded optional human-readable explanation for why the connection was closed. It is zero-terminated if exists, to make handling in C-like languages simpler.
+
+#### 4.2.10 ACK frame
 
 The ACK frame is sent to inform the peer which packets have been received, as well as which packets are still considered missing by the receiver (the contents of missing packets may need to be re-sent).
 
 Figure 4: ACK frame layout
+
 ```
 ofs : sz : description
-  0 :  1 : Frame type (2 - ACK)
+  0 :  1 : Frame type (8 - ACK)
   1 :  1 : Sent entropy
   2 :  1 : Received entropy
   3 :  1 : Number of missing packets
@@ -531,20 +704,21 @@ Data in an ACK frame is divided logically into two sections:
 
 ##### Sent Packet Data
 
- * Sent Entropy `uint8_t`: Cumulative hash of entropy in all sent packets up to the packet with sequence number one less than the *least unacked packet*.
- * Least Unacked `big_uint64_t`: The smallest sequence number of any packet for which the sender is still awaiting an ack. If the receiver is missing any packets smaller than this value, the receiver should consider those packets to be irrecoverably lost.
+* Sent Entropy `u8`: Cumulative hash of entropy in all sent packets up to the packet with sequence number one less than the *least unacked packet*.
+* Least Unacked `big_u64`: The smallest sequence number of any packet for which the sender is still awaiting an ack. If the receiver is missing any packets smaller than this value, the receiver should consider those packets to be irrecoverably lost.
 
 ##### Received Packet Data
 
- * Received Entropy `uint8_t`: Cumulative hash of entropy in all received packets up to the largest observed packet.
- * Largest Observed `big_uint64_t`:
-   * If the value of Missing Packets includes every packet observed to be missing since the last ACK frame transmitted by the sender, then this value shall be the largest observed sequence number.
-   * If there are packets known to be missing which are not present in Missing Packets (due to size limitations), then this value shall be the largest sequence number smaller than the first missing packet which this ACK does not include.
-   * If multiple consecutive packets are lost, the value of Largest Observed may also appear in Missing Packets.
- * Largest Observed Delta Time `big_uint32_t`: Time elapsed in microseconds from when largest observed was received until this Ack frame was sent.
- * Num Missing `uint8_t`: Number of missing packets between largest observed and least unacked. **@todo Should it be number of entries in missing packets array or actual number of missing packets? Array count seems safer and you can infer total missing by summing up all entries.**
- * Missing Packets `(big_uint48_t+big_uint16_t)[]`: A series of the lower 48 bits of the sequence numbers of packets which have not yet been received (NACK).
-   * RLE encoded with higher 48 bits containing the lower 48 bits of the sequence number and lower 16 bits containing the length of the run starting with this sequence number.
+* Received Entropy `u8`: Cumulative hash of entropy in all received packets up to the largest observed packet.
+* Largest Observed `big_u64`:
+  * If the value of Missing Packets includes every packet observed to be missing since the last ACK frame transmitted by the sender, then this value shall be the largest observed sequence number.
+  * If there are packets known to be missing which are not present in Missing Packets (due to size limitations), then this value shall be the largest sequence number smaller than the first missing packet which this ACK does not include.
+  * If multiple consecutive packets are lost, the value of Largest Observed may also appear in Missing Packets.
+* Largest Observed Delta Time `big_u32`: Time elapsed in microseconds from when largest observed was received until this Ack frame was sent.
+* Num Missing `u8`: Number of missing packets between largest observed and least unacked. **@todo Should it be number of entries in missing packets array or actual number of missing packets? Array count seems safer and you can infer total missing by summing up all entries.**
+* Missing Packets `(big_u48, big_u16)[]`: A series of the lower 48 bits of the sequence numbers of packets which have not yet been received (NACK).
+  * RLE encoded with higher 48 bits containing the lower 48 bits of the sequence number and lower 16 bits containing the length of the run starting with this sequence number.
+
 ```
 ofs : sz : description
   0 :  6 : Missing Packet lower 48 bits of sequence number
@@ -557,160 +731,9 @@ It is expected that with regular loss rate and packet rate ACK frames will often
 
 **@todo** Add graphical explanations for ACK packet fields (least unacked/largest observed).
 
-#### 4.2.5 PADDING frame
+#### 4.2.11 SETTINGS frame
 
-Padding frame indicates padding data within a packet, used to counter traffic analysis attacks. Ideally all packets should be padded to have same final length of 1280 bytes. However, in case of slow connection it may be preferential to not pad the data packets or pad them to a shorter common length.
-Padding frame contents may be anything and are simply ignored. It is recommended to explicitly initialize this padding data area with either random or zero bytes and not leave any old data that might leak information.
-The receiver is *advised to* simply skip over this data without trying to interpret or save it in any way. After processing the packet, packet memory *should* be zeroed.
-
-Figure 5: Padding frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (3 - PADDING)
-  1 :  2 : Length of padding L
-  3 :  L : Padding data
-```
-
-Padding packet may be as small as 3 bytes - type byte and length field, which is zero in this case.
-
-Take note of the rounding requirements - all padding together *must* pad message size to an integer multiple of 16 bytes.
-
-#### 4.2.6 DECONGESTION frame
-
-Decongestion feedback frame contents are specific to chosen decongestion method in the channel. Frame format for several implemented methods will be listed here.
-
-Figure 6: Decongestion frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (4 - DECONGESTION)
-  1 :  1 : Subtype
-  2 :  X : Method specific contents
-```
-
-##### 4.2.6.1 Congestion control feedback for TCP Cubic
-
-Similar to TCP protocol, packet loss and receive window size are provided.
-
-Figure 7: TCP decongestion frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (4 - DECONGESTION)
-  1 :  1 : Subtype (1 - TCP CUBIC)
-  2 :  2 : Num lost packets
-  4 :  2 : Receive window size
-```
- * Num lost packets `big_u16`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
- * Receive window `big_u16`: The TCP receive window.
-
-##### 4.2.6.2 Congestion control feedback for CurveCP Chicago
-
-Chicago updates with RTT times as seen by the far end. This is not required for operation of Chicago protocol, which handles everything on the near side, but is included for complete information for the far end.
-
-Figure 8: Chicago decongestion frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (4 - DECONGESTION)
-  1 :  1 : Subtype (2 - Chicago)
-  2 :  4 : RTT High
-  6 :  4 : RTT Low
- 10 :  4 : RTT Average
- 14 :  4 : RTT Mean deviation
-```
- * Highest RTT `big_u32`: **@todo**
- * Lowest RTT `big_u32`: **@todo**
- * Average RTT `big_u32`: **@todo**
- * RTT mean deviation `big_u32`: **@todo**
-
-##### 4.2.6.3 Congestion control feedback for UDP LEDBAT
-
-```
-ofs : sz : description
-  0 :  1 : Frame type (4 - DECONGESTION)
-  0 :  1 : Type
-  1 :  1 : Subtype (3 - LEDBAT)
-  .......
-```
-
-**@todo**
-
-##### 4.2.6.4 Congestion control feedback for WebRTC Inter-arrival
-
-Figure 10: Inter-arrival decongestion frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (4 - DECONGESTION)
-  1 :  1 : Subtype (4 - Inter-arrival)
-  2 :  2 : Num lost packets
-  4 :  1 : Received
-  5 :  6 : Smallest Received Packet
- 11 :  8 : Smallest Delta Time
- 19 :  2 : Packet Delta
- 21 :  4 : Packet Time Delta
-```
- * Num lost packets `big_uint16_t`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
- * Received `uint8_t`: Number of received packets in this update.
- * Smallest Received Packet `big_uint48_t`: The lower 48 bits of the smallest sequence number represented in this update.
- * Smallest Delta Time `big_uint64_t`: Delta time from connection creation when the above packet was received.
- * Packet Delta `big_uint16_t`: Sequence number delta from the Smallest Received Packet. Always followed immediately by a corresponding Packet Time Delta.
- * Packet Time Delta `big_uint32_t`: Time delta from smallest time when the preceding packet sequence number was received.
-
-#### 4.2.7 DETACH frame
-
-Detach frame allows stream to detach from current channel without shutting down the stream. Detaching informs the other side that this stream should not be torn down, but it will not send more data on this channel. Stream may be subsequently reattached, if needed, to this or some other channel. The stream is NOT closed or half-closed after detach, however it cannot be used for data transfer until re-attached.
-
-Detach frame only contains LSID of stream that will be detached.
-
-Figure 11: Detach frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (5 - DETACH)
-  1 :  4 : Stream Local ID (LSID) in sender ID space
-```
- * Stream Local ID `big_uint32_t`: LSID of the stream to detach (in sender's ID space)
-
-#### 4.2.8 RESET frame
-
-Abort stream.
-
-The RESET frame allows for abnormal termination of a stream. When sent by the creator of a stream, it indicates the creator wishes to cancel the stream. When sent by the receiver of a stream, it indicates an error or that the receiver did not want to accept the stream, so the stream should be closed.
-
-Figure 12: Reset frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (6 - RESET)
-  1 :  4 : Stream Local ID (LSID) in sender ID space
-  5 :  4 : Error code
-  9 :  2 : Reason phrase length R
- 11 :  R : Reason phrase (variable length, may be 0)
-```
- * Stream Id `big_u32`: LSID of the stream (in sender's ID space).
- * Error code `big_u32`: Error code which indicates why the stream is being closed. (**@todo Add a table of error codes!**)
- * Reason phrase length `big_u16`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
- * Reason phrase: A UTF-8 encoded optional human-readable explanation for why the connection was closed. It is zero-terminated if exists, to make handling in C-like languages simpler.
-
-#### 4.2.9 CLOSE frame
-
-Close channel.
-
-**@todo Immediate close and non-immediate (goaway) close?**
-
-Figure 13: Close frame layout
-```
-ofs : sz : description
-  0 :  1 : Frame type (7 - CLOSE)
-  1 :  4 : Error code
-  5 :  2 : Reason phrase length R
-  7 :  R : Reason phrase (variable length, may be 0)
-7+R :  X : Final ACK frame (variable length)
-```
- * Error code `big_uint32_t`: Error code which indicates why the connection is being closed.
- * Reason phrase length `big_uint16_t`: Length of the reason phrase. This may be zero if the sender chooses to not give details beyond the error code.
- * Reason phrase: An optional human-readable explanation for why the connection was closed.
- * AckFrame: A final ack frame, letting the peer know which packets had been received at the time the connection was closed. A complete ACK frame is contained within this field and can be parsed with normal frame parser.
-
-### 4.2.10 SETTINGS frame
-
-Allow to setup some connection parameters.
+Allows to setup some connection parameters.
 
 Currently supported options:
   * FEC
@@ -720,7 +743,7 @@ Settings are in a list of integer tags and associated values. Types of values ar
 
 ```
 ofs : sz : description
-  0 :  1 : Frame type (8 - SETTTINGS)
+  0 :  1 : Frame type (9 - SETTTINGS)
   1 :  2 : Number of settings N
   3 :  X : Settings tags
 ```
@@ -742,20 +765,7 @@ List of negotiation tags:
    * 3 - LEDBAT
    * 4 - Inter-arrival
 
-Tags must be sorted in the order of increasing tag number. No duplicate tags are presently allowed.
-
-### 4.2.11 PRIORITY frame
-
-PRIORITY frame indicates to the receiver a priority of processing frame data for a given stream.
-It is only a hint. The receiver should make best effort to process given stream's data in accordance with relative priority given (streams with priority 0 should always be processed first, then streams with priority 1 and so on).
-
-```
-ofs : sz : description
-  0 :  1 : Frame type (9 - PRIORITY)
-  1 :  4 : Stream Local ID (LSID) in sender ID space
-  5 :  4 : Priority value
-```
- * Priority value is a `big_uint32_t` with 0 for maximum stream priority and maximum uint32_t value for minimum stream priority.
+Tags MUST be sorted in the order of increasing tag number. Duplicate tags MUST NOT be present.
 
 ### 4.3 Frame assembly
 
@@ -770,52 +780,66 @@ on the priority and urgency of sending them out.
 
 Frame types sorted by priority - highest to lowest:
 ```
-SETTINGS
-ACK
-RESET
-PRIORITY
-DECONGESTION
-DETACH
-CLOSE
-STREAM/ATTACH
-PADDING
-EMPTY
+SETTINGS (9)
+ACK (8)
+RESET (7)
+PRIORITY (6)
+DECONGESTION (5)
+DETACH (4)
+CLOSE (3)
+STREAM/ATTACH (2)
+PADDING (1)
+EMPTY (0)
 ```
 
 Frame assembly needs to account for both channel and stream layers requests.
 
-### 4.3.1 SETTINGS
+#### 4.3.1 SETTINGS
+
 - Layer: Channel
 
-### 4.3.2 ACK
+#### 4.3.2 ACK
+
 - Layer: Channel
 
-### 4.3.3 RESET
+#### 4.3.3 RESET
+
 - Layer: Stream
 
-### 4.3.4 PRIORITY
+#### 4.3.4 PRIORITY
+
 - Layer: Stream
 - check https://dl.dropboxusercontent.com/s/1pdteaj3l1yp3lu/2015-02-19%20at%2021.49.jpg
 
 - Priority must be relative to parent?
 - Child streams cannot progress before their parent.
 
-### 4.3.5 DECONGESTION
+#### 4.3.5 DECONGESTION
+
 - Layer: Channel
 
 - check https://dl.dropboxusercontent.com/s/4k7s83fmeux1b87/2015-02-19%20at%2021.50.jpg
 - Send up to a lesser of stream window and channel window
 
-### 4.3.6 STREAM/ATTACH
+#### 4.3.6 DETACH
+
+* Layer: Stream
+
+#### 4.3.7 CLOSE
+
+* Layer: Channel
+
+#### 4.3.8 STREAM/ATTACH
+
 - Layer: Stream
 
-### 4.3.7 DETACH
-- Layer: Stream
+#### 4.3.9 PADDING
 
-### 4.3.8 CLOSE
-- Layer: Channel
+- Layer: Framing
 
-### 4.3.9 PADDING
+
+#### 4.3.10 EMPTY
+
 - Layer: Framing
 
 
