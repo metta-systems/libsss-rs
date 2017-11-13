@@ -73,7 +73,8 @@ struct StreamPeer {
 
 impl StreamPeer {
     fn no_lookups_possible(self) -> bool {
-        self.coord.lookups.isEmpty() && key_exchanges_initiated.isEmpty()
+        false
+        // self.coord.lookups.isEmpty() && key_exchanges_initiated.isEmpty()
     }
 }
 
@@ -133,9 +134,9 @@ impl Stream {
     /// The stream must be connected to a remote host via connect_to() before it can be
     /// used for communication.
     /// @param host the Host instance containing hostwide SSS state.
-    pub fn create(host: Rc<Host>) {
-        Stream { host, stream }
-    }
+    // pub fn create(host: Rc<Host>) -> Stream {
+    //     Stream { host, stream:  }
+    // }
 
     /* @name Connection-related services. */
 
@@ -175,10 +176,10 @@ impl Stream {
      */
     pub fn connect_to(
         self,
-        destination: uia::PeerIdentity,
-        service: String,
-        protocol: String,
-        destination_endpoint_hint: uia::comm::Endpoint,
+        _destination: uia::PeerIdentity,
+        _service: String,
+        _protocol: String,
+        _destination_endpoint_hint: uia::comm::Endpoint,
     ) -> bool {
         true
     }
@@ -213,7 +214,7 @@ impl Stream {
      * to give SST a hint at where it might find the target
      * in order to re-establish connectivity.
      */
-    pub fn connect_at(self, ep: uia::comm::Endpoint) {}
+    pub fn connect_at(self, _ep: uia::comm::Endpoint) {}
 
     /* @name Byte-oriented data transfer. Reading data. */
 
