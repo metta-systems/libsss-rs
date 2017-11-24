@@ -906,7 +906,7 @@ Root stream does not have a unique ID and therefore is always implicitly started
 Whenever a pair of SSS hosts set up a new channel via the negotiation protocol, the hosts implicitly create a special stream for the channel called the channel root. A channel’s root stream is always attached to the channel with an LSID of 0 in each direction, and never detaches or migrates to other channels. The channel itself terminates once its root stream is closed in both directions.
 Applications are not generally aware of the existence of channel root streams at all: channel roots merely provide an outermost context in each channel that the stream layer uses to exchange control messages and initiate (or migrate in) other streams on behalf of applications.
 
-### Service request streams (**@fixme** LSIDs 1 and 2)
+### Service request streams (LSIDs 1 and 2)
 
 When the application makes a connect request to open a new top-level stream to a given target host and service, the stream protocol on the initiating host creates a service request stream as a substream of a suitable channel’s root stream. The initiating stream protocol then sends a service request message on this new stream. Initiator starts this stream with LSID 1, responder uses LSID 2 for the same stream. Responder is always on the even side with regards to LSIDs, while initiator is on the odd side.
 
