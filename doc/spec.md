@@ -381,7 +381,7 @@ Non-FEC packet payload consists of:
  * One or more tagged frames (see 4.2)
  * Zero-padding. This padding produces a total message length that is a multiple of 16 bytes, at least 16 bytes and at most **1168 bytes**. This accounts for 40 bytes of IPv6 header, 8 bytes of UDP header and 64 bytes of packet header and cryptobox overhead. The total size of the datagram is thus limited to 1280 bytes - the 1280-byte datagrams are allowed by IPv6 on all networks.
 
-Note: When describing data fields the C-like type notation is used, where
+Note: When describing data fields the following type notation is used, where
  * `u8` specifies unsigned 8-bit quantity (an octet)
  * `big_u16` specifies unsigned 16-bit quantity in network (big-endian) order
  * `big_u32` specifies unsigned 32-bit quantity in network (big-endian) order
