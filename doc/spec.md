@@ -392,6 +392,10 @@ Note: When describing data fields the following type notation is used, where
  * `big_u48` specifies unsigned 48-bit quantity in network (big-endian) order
  * `big_u64` specifies unsigned 64-bit quantity in network (big-endian) order
 
+`[type]` represents an optinal field of type `type`, for example `[big_u16]` is an optional 16-bit field.
+
+`type1|type2` represents an alternative of either type1 or type2, for example `big_u16|big_u32` is a field stored as either 16-bit or 32-bit value in network order.
+
 #### 4.1.1 Packet header format
 
 Every packet (FEC or non-FEC) starts with a packet header, describing the packet type and sequence number. 
@@ -400,11 +404,11 @@ Packets may carry optional version field. Parties use this field to negotiate su
 
 Figure 3: Packet header
 ```
-    ofs :       sz : description
-      0 :        1 : Flags (000fssgv)
-      1 :        2 : Version (optional, if v bit is set)
-    1,3 :        1 : FEC group (optional, if g bit is set)
-1,2,3,4 :  2,4,6,8 : Packet sequence number (depending on ss bits)
+    ofs :        sz : description
+      0 :        u8 : Flags (bit field 000fssgv)
+      1 : [big_u16] : Version (optional, if v bit is set)
+    1,3 :      [u8] : FEC group (optional, if g bit is set)
+1,2,3,4 :   2,4,6,8 : Packet sequence number (depending on ss bits)
 ```
 
 * Flags `u8`:
