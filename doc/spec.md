@@ -174,11 +174,11 @@ Notification should also be provided, or access for the following events (granul
 
 ### 2.2 Packet types
 
-Each packet is distinguished by its magic value. Of the below types, all negotiation packets have own magic values to make negotiation level's work simpler. The rest of the packets use the single `message` packet magic and further discrimination is performed after opening the packet's crypto box.
+Each packet is distinguished by its magic value. Of the below types, all negotiation packets have own magic values to make negotiation level's work simpler. The rest of the packets use the single `MESSAGE` packet magic and further discrimination is performed after opening the packet's crypto box.
 
 ```
 packet
-+--negotiation types
++--negotiation types (described in section 3 below)
    +--HELLO
    +--COOKIE
    +--INITIATE
