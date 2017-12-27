@@ -3,21 +3,25 @@ Structured Secure Streams
 
 ## 1 Introduction
 
-SSS builds on SST, SPDY, QUIC and CurveCP protocols.
+SSS is an application-level data transfer protocol suitable for many purposes, such as audio, video, file transfers, RPC calls, text messaging or secure VPN-like tunneling. It provides a simple stream abstraction similar to TCP but with ability to multiplex a number of such streams asynchronously inside a single connection session.
 
 SSS provides the following set of features:
  * Multiplex many application streams onto one secure network connection
  * Streams with hereditary structure: applications can spawn lightweight streams from existing ones
    * Efficient: no 3-way handshake on startup or TIME-WAIT on close
    * Supports request/response transactions without serializing onto one stream
-   * General out-of-band signaling: control requests already in progress
+   * General out-of-band signaling: control already in progress requests
  * Both reliable and best-effort delivery in a semantically unified model
    * supports messages/datagrams of any size: no need to limit size of video frames, RPC responses, etc.
  * Dynamic prioritization of application's streams
    * e.g., load visible parts of a web page first, change priorities when user scrolls
  * End-to-end cryptographic security
 
-SPDY and QUIC extend with packet framing, encoding and a set of goals to achieve (see below).
+SSS builds on SST, SPDY, QUIC and CurveCP protocols.
+
+SST is the basis for overall protocol structure.
+
+SPDY and QUIC extend it with packet framing, encoding and a set of goals to achieve (see below).
 
 CurveCP adds opaque cryptoboxes for all crucial contents and a session initiation protocol.
 
