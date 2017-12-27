@@ -298,7 +298,7 @@ ofs :   ofs : sz  :
 192 :   48  : 48  : box I->R containing Vouch subpacket:
             : ofs : sz  :
             : 0   : 32  : initiator short-term public key I'
-240 :   96  : M   : message
+240 :   96  : M   : message (with SETTINGS frame coming first)
 TOTAL: 240+M+16 bytes
 ```
 
