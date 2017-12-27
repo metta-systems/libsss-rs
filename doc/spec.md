@@ -225,7 +225,7 @@ Channels hold short-term keys for encrypted session. Closing a channel destroys 
 
 #### 3.1.4 Security requirements for nonces
 
-Attached to the box is a public 24-byte nonce chosen by the sender. Nonce means "number used once." After a particular nonce has been used to encrypt a packet, the same nonce must never be used to encrypt another packet from the sender's secret key to this receiver's public key, and the same nonce must never be used to encrypt another packet from the receiver's secret key to this sender's public key. This requirement is essential for cryptographic security.
+Attached to the box is a public 24-byte nonce chosen by the sender. Nonce means "number used once." After a particular nonce has been used to encrypt a packet, the same nonce must **never** be used to encrypt another packet from the sender's secret key to this receiver's public key, and the same nonce must never be used to encrypt another packet from the receiver's secret key to this sender's public key. This requirement is essential for cryptographic security.
 
 ### 3.2 Negotiation Protocol Packet Format
 
