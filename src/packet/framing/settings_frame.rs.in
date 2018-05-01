@@ -1,0 +1,35 @@
+use super::frame_type::FrameType;
+
+/*
+ofs : sz : description
+  0 :  1 : Frame type (9 - SETTTINGS)
+  1 :  2 : Number of settings N
+  3 :  X : Settings tags
+```
+ * Number of settings `big_u16`: Number of setting pairs in this frame
+ * Each setting consists of `big_u16` tag and associated value.
+
+List of negotiation tags:
+```
+ Tag | Meaning                      | Value Type
+-----+------------------------------+--------------
+   1 | FEC                          | u8
+   2 | Congestion control algorithm | big_u16
+```
+ * For FEC the `u8` value is treated as a boolean flag, with 0 indicating NO and 1 indicating YES for FEC use in this session.
+ * For CC the `big_u16` value is treated as an enum of used CC algorithms with following values (these values match DECONGESTION frame sub-types):
+   * 0 - no CC
+   * 1 - TCP CUBIC
+   * 2 - Chicago
+   * 3 - LEDBAT
+   * 4 - Inter-arrival
+
+Tags MUST be sorted in the order of increasing tag number. Duplicate tags MUST NOT be present.
+*/
+#[packet]
+pub struct SettingsFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}

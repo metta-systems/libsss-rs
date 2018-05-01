@@ -1,0 +1,21 @@
+use super::frame_type::FrameType;
+
+/*
+Figure 13: Close frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (3 - CLOSE)
+  1 :  4 : Error code
+  5 :  2 : Reason phrase length R
+  7 :  R : Reason phrase (variable length, may be 0)
+7+R :  X : Final ACK frame (variable length)
+```
+*/
+#[packet]
+pub struct CloseFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}

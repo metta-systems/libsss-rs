@@ -1,0 +1,18 @@
+use super::frame_type::FrameType;
+
+/*
+Figure 11: Detach frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (4 - DETACH)
+  1 :  4 : Stream Local ID (LSID) in sender ID space
+```
+*/
+#[packet]
+pub struct DetachFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}

@@ -1,0 +1,20 @@
+use super::frame_type::FrameType;
+use pnet_macros_support::types::*;
+
+/*
+```
+ofs : sz : description
+  0 :  1 : Frame type (1 - PADDING)
+  1 :  2 : Length of padding L
+  3 :  L : Padding data
+```
+*/
+#[packet]
+pub struct PaddingFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    pub padding_length: u16be,
+    #[payload]
+    #[length = "padding_length"]
+    pub payload: Vec<u8>,
+}

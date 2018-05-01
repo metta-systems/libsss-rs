@@ -1,0 +1,20 @@
+use super::frame_type::FrameType;
+
+/*
+Figure 12: Reset frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (7 - RESET)
+  1 :  4 : Stream Local ID (LSID) in sender ID space
+  5 :  4 : Error code
+  9 :  2 : Reason phrase length R
+ 11 :  R : Reason phrase (variable length, may be 0)
+```
+*/
+#[packet]
+pub struct ResetFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}

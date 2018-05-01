@@ -1,0 +1,30 @@
+use pnet_macros_support::types::*;
+
+/* Packet Payload Header
+0               1               2               3              4
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|0 0 0|F| SS|G|V|  Version (optional, V=1)      |    FEC, F=1   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Packet sequence number (2 to 8 bytes, SS)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#[packet]
+pub struct Header {
+    pub zeros: u3,
+    pub last_fec_group: u1,
+    pub sequence_number_size: u2,
+    pub fec_group_present: u1,
+    pub version_present: u1,
+    #[length = "version_present * 2"]
+    pub version: Vec<u16be>,
+    #[length = "fec_group_present"]
+    pub fec_group: Vec<u8>,
+    #[length = "(sequence_number_size + 1) * 2"]
+    pub packet_sequence_number: Vec<u16be>,
+    #[payload]
+    #[length = "0"]
+    pub payload: Vec<u8>,
+}

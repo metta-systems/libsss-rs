@@ -1,0 +1,14 @@
+use pnet_macros_support::types::*;
+
+#[packet]
+pub struct Hello {
+    pub magic: u64be,
+    #[length = "32"]
+    pub initiator_shortterm_public_key: Vec<u8>,
+    #[length = "64"]
+    pub zero: Vec<u8>,
+    pub compressed_nonce: u64be,
+    #[payload]
+    #[length = "80"]
+    pub payload: Vec<u8>,
+}

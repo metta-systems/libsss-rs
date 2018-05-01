@@ -1,0 +1,13 @@
+use pnet_macros_support::types::*;
+
+#[packet]
+pub struct Initiate {
+    pub magic: u64be,
+    #[length = "32"]
+    pub initiator_shortterm_public_key: Vec<u8>,
+    #[length = "96"]
+    pub responder_cookie: Vec<u8>,
+    pub compressed_nonce: u64be,
+    #[payload]
+    pub payload: Vec<u8>,
+}

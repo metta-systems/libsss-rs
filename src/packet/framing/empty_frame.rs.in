@@ -1,0 +1,16 @@
+use super::frame_type::FrameType;
+use pnet_macros_support::types::*;
+
+/*
+Empty frame layout
+         ofs :                  sz : description
+           0 :                   1 : Frame type (0 - EMPTY)
+*/
+#[packet]
+pub struct EmptyFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    #[length = "0"]
+    pub payload: Vec<u8>,
+}

@@ -1,0 +1,81 @@
+use super::frame_type::FrameType;
+
+/*
+Figure 6: Decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype
+  2 :  X : Method specific contents
+```
+
+##### 4.2.7.1 Congestion control feedback for TCP Cubic
+
+Similar to TCP protocol, packet loss and receive window size are provided.
+
+Figure 7: TCP decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (1 - TCP CUBIC)
+  2 :  2 : Num lost packets
+  4 :  2 : Receive window size
+```
+ * Num lost packets `big_u16`: The number of packets lost over the lifetime of this connection. This may wrap for long-lived connections.
+ * Receive window `big_u16`: The TCP receive window.
+
+##### 4.2.7.2 Congestion control feedback for CurveCP Chicago
+
+Chicago updates with RTT times as seen by the far end. This is not required for operation of Chicago protocol, which handles everything on the near side, but is included for complete information for the far end.
+
+Figure 8: Chicago decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (2 - Chicago)
+  2 :  4 : RTT High
+  6 :  4 : RTT Low
+ 10 :  4 : RTT Average
+ 14 :  4 : RTT Mean deviation
+```
+ * Highest RTT `big_u32`: **@todo**
+ * Lowest RTT `big_u32`: **@todo**
+ * Average RTT `big_u32`: **@todo**
+ * RTT mean deviation `big_u32`: **@todo**
+
+##### 4.2.7.3 Congestion control feedback for UDP LEDBAT
+
+Figure 9: LEDBAT decongestion frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  0 :  1 : Type
+  1 :  1 : Subtype (3 - LEDBAT)
+  .......
+```
+
+**@todo**
+
+##### 4.2.7.4 Congestion control feedback for WebRTC Inter-arrival
+
+Figure 10: Inter-arrival decongestion frame layout
+```
+ofs : sz : description
+  0 :  1 : Frame type (5 - DECONGESTION)
+  1 :  1 : Subtype (4 - Inter-arrival)
+  2 :  2 : Num lost packets
+  4 :  1 : Received
+  5 :  6 : Smallest Received Packet
+ 11 :  8 : Smallest Delta Time
+ 19 :  2 : Packet Delta
+ 21 :  4 : Packet Time Delta
+```
+*/
+#[packet]
+pub struct DecongestionFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}

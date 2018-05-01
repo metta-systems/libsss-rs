@@ -1,0 +1,55 @@
+use super::frame_type::FrameType;
+
+/*
+Figure 4: ACK frame layout
+
+```
+ofs : sz : description
+  0 :  1 : Frame type (8 - ACK)
+  1 :  1 : Sent entropy
+  2 :  1 : Received entropy
+  3 :  1 : Number of missing packets
+  4 :  8 : Least Unacked Packet
+ 12 :  8 : Largest Observed
+ 20 :  4 : Largest Observed Delta Time
+ 24 :  X : Missing packets NACK (variable length, may be empty)
+```
+
+Data in an ACK frame is divided logically into two sections:
+
+##### Sent Packet Data
+
+* Sent Entropy `u8`: Cumulative hash of entropy in all sent packets up to the packet with sequence number one less than the *least unacked packet*.
+* Least Unacked `big_u64`: The smallest sequence number of any packet for which the sender is still awaiting an ack. If the receiver is missing any packets smaller than this value, the receiver should consider those packets to be irrecoverably lost.
+
+##### Received Packet Data
+
+* Received Entropy `u8`: Cumulative hash of entropy in all received packets up to the largest observed packet.
+* Largest Observed `big_u64`:
+  * If the value of Missing Packets includes every packet observed to be missing since the last ACK frame transmitted by the sender, then this value shall be the largest observed sequence number.
+  * If there are packets known to be missing which are not present in Missing Packets (due to size limitations), then this value shall be the largest sequence number smaller than the first missing packet which this ACK does not include.
+  * If multiple consecutive packets are lost, the value of Largest Observed may also appear in Missing Packets.
+* Largest Observed Delta Time `big_u32`: Time elapsed in microseconds from when largest observed was received until this Ack frame was sent.
+* Num Missing `u8`: Number of missing packets between largest observed and least unacked. **@todo Should it be number of entries in missing packets array or actual number of missing packets? Array count seems safer and you can infer total missing by summing up all entries.**
+* Missing Packets `(big_u48, big_u16)[]`: A series of the lower 48 bits of the sequence numbers of packets which have not yet been received (NACK).
+  * RLE encoded with higher 48 bits containing the lower 48 bits of the sequence number and lower 16 bits containing the length of the run starting with this sequence number.
+
+```
+ofs : sz : description
+  0 :  6 : Missing Packet lower 48 bits of sequence number
+  6 :  2 : Number of missing packets
+```
+
+Number of missing packets in a NACK run cannot be zero. **@todo** Might use last entry with zero run length as indication that NACK run has been shortened, although it is not necessary.
+
+It is expected that with regular loss rate and packet rate ACK frames will often be the minimal size (24 bytes), and only from time to time contain one or two missed packets. On bad or lossy connections the ACK frame might become big enough to have its own separate full-sized packet.
+
+**@todo** Add graphical explanations for ACK packet fields (least unacked/largest observed).
+*/
+#[packet]
+pub struct AckFrame {
+    #[construct_with(u8)]
+    pub frame_type: FrameType,
+    #[payload]
+    pub payload: Vec<u8>,
+}
