@@ -84,3 +84,14 @@ fn off_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
         x => x as usize + 1usize,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assemble_stream_frame_header() {
+        let mut buf = vec![0; 10];
+        let packet = StreamFramePacket::new(&mut buf[..]);
+    }
+}
