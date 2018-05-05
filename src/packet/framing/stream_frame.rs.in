@@ -1,4 +1,5 @@
-use super::frame_type::FrameType;
+use super::frame_type::{FrameType, FrameTypes};
+use pnet_macros_support::packet::{Packet, PacketSize};
 use pnet_macros_support::types::*;
 
 /*
@@ -70,11 +71,11 @@ pub struct StreamFrame {
     #[length = "usid_flag * 24"]
     pub usid: Vec<u8>,
     #[length_fn = "off_fn"]
-    pub offset: u64be,
+    internal_offset_field: Vec<u8>,
     #[length = "data_length_flag * 2"]
-    pub data_length: u16be,
+    internal_data_length_field: Vec<u8>,
     #[payload]
-    #[length = "data_length"]
+    #[length_fn = "data_length_fn"]
     pub payload: Vec<u8>,
 }
 
@@ -82,6 +83,39 @@ fn off_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
     match frame.get_offset_flag() {
         0 => 0usize,
         x => x as usize + 1usize,
+    }
+}
+
+fn offset_fn_int<'a>(frame: &StreamFramePacket<'a>) -> Option<usize> {
+    let off = off_fn(frame);
+    if off == 0 {
+        return None;
+    }
+    let mut v: usize = 0;
+    let slice = frame.get_internal_offset_field_raw();
+    for i in 0..off {
+        v = (v << 8) | slice[i as usize] as usize;
+    }
+    Some(v)
+}
+
+fn data_length_fn_int<'a>(frame: &StreamFramePacket<'a>) -> Option<usize> {
+    let off = frame.get_data_length_flag() * 2;
+    if off == 0 {
+        return None;
+    }
+    let mut v: usize = 0;
+    let slice = frame.get_internal_data_length_field_raw();
+    for i in 0..off {
+        v = (v << 8) | slice[i as usize] as usize;
+    }
+    Some(v)
+}
+
+fn data_length_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
+    match data_length_fn_int(frame) {
+        None => 0usize,
+        Some(x) => x,
     }
 }
 
@@ -100,6 +134,46 @@ fn off_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
 //     }};
 // }
 
+impl<'a> StreamFramePacket<'a> {
+    pub fn get_offset(&self) -> Option<usize> {
+        offset_fn_int(self)
+    }
+
+    pub fn get_data_length(&self) -> Option<usize> {
+        data_length_fn_int(self)
+    }
+}
+
+impl<'a> MutableStreamFramePacket<'a> {
+    pub fn get_offset(&self) -> Option<usize> {
+        offset_fn_int(&self.to_immutable())
+    }
+
+    pub fn set_offset(&mut self, off: usize) {
+        match off {
+            0 => self.set_offset_flag(0),
+            1...0xffff => {
+                self.set_offset_flag(1);
+                self.set_internal_offset_field(&vec![((off & 0xff00) >> 8) as u8, (off) as u8]);
+            }
+            0x10000...0xffffff => {
+                self.set_offset_flag(2);
+                self.set_internal_offset_field(&vec![
+                    ((off & 0xff0000) >> 16) as u8,
+                    ((off & 0xff00) >> 8) as u8,
+                    (off) as u8,
+                ]);
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn set_data_length(&mut self, length: usize) {
+        self.set_data_length_flag(1);
+        self.set_internal_data_length_field(&vec![((length & 0xff00) >> 8) as u8, (length) as u8]);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +182,34 @@ mod tests {
     fn assemble_stream_frame_header() {
         let mut buf = vec![0; 10];
         let packet = StreamFramePacket::new(&mut buf[..]);
+        packet.set_no_ack_flag(0); // datagram flag to ctor
+        packet.set_init_flag(1); // manual
+        packet.set_fini_flag(1); // manual
+        packet.set_usid_flag(1); // set by set_usid(Some(..))
+        packet.set_record_flag(0); // manual
+        packet.set_stream_id(0x12345678); // manual
+        packet.set_parent_stream_id(0x12345676); // manual
+        packet.set_usid(b"helloiamusidhelloiamusid"); // manual
+        packet.set_offset(0x4321); // manual
+        packet.set_data_length(5); // set by set_payload? or manual if we support filling the rest of the packet with data
+        packet.set_payload(b"hello");
+
+        assert_eq!(packet.get_internal_offset_field().len(), 2); // Check internal representation length
+        assert_eq!(packet.get_offset(), Some(0x4321));
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        assert_eq!(
+            &packet.packet()[..packet.packet_size()],
+            &vec![
+                0x02,                    // frame type
+                0x67, 0,                 // flags
+                0x12, 0x34, 0x56, 0x78,  // stream id
+                0x12, 0x34, 0x56, 0x76,  // parent stream id
+                104, 101, 108, 108, 111, 105, 97, 109, 117, 115, 105, 100, //usid..
+                104, 101, 108, 108, 111, 105, 97, 109, 117, 115, 105, 100, //..usid
+                0x43, 0x21,              // offset
+                0x00, 0x05,              // payload size
+                104, 101, 108, 108, 111, // payload
+            ][..]
+        );
     }
 }
