@@ -67,13 +67,13 @@ pub struct StreamFrame {
     pub record_flag: u1,
     pub stream_id: u32be,
     #[length = "init_flag * 4"]
-    pub parent_stream_id: u32be,
+    pub parent_stream_id: Vec<u32be>,
     #[length = "usid_flag * 24"]
     pub usid: Vec<u8>,
     #[length_fn = "off_fn"]
     internal_offset_field: Vec<u8>,
     #[length = "data_length_flag * 2"]
-    internal_data_length_field: Vec<u8>,
+    pub data_length: Vec<u16be>,
     #[payload]
     #[length_fn = "data_length_fn"]
     pub payload: Vec<u8>,
@@ -100,16 +100,10 @@ fn offset_fn_int<'a>(frame: &StreamFramePacket<'a>) -> Option<usize> {
 }
 
 fn data_length_fn_int<'a>(frame: &StreamFramePacket<'a>) -> Option<usize> {
-    let off = frame.get_data_length_flag() * 2;
-    if off == 0 {
+    if frame.get_data_length_flag() == 0 {
         return None;
     }
-    let mut v: usize = 0;
-    let slice = frame.get_internal_data_length_field_raw();
-    for i in 0..off {
-        v = (v << 8) | slice[i as usize] as usize;
-    }
-    Some(v)
+    Some(frame.get_data_length()[0] as usize)
 }
 
 fn data_length_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
@@ -137,10 +131,6 @@ fn data_length_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
 impl<'a> StreamFramePacket<'a> {
     pub fn get_offset(&self) -> Option<usize> {
         offset_fn_int(self)
-    }
-
-    pub fn get_data_length(&self) -> Option<usize> {
-        data_length_fn_int(self)
     }
 }
 
@@ -174,11 +164,6 @@ impl<'a> MutableStreamFramePacket<'a> {
             _ => unimplemented!(),
         }
     }
-
-    pub fn set_data_length(&mut self, length: usize) {
-        self.set_data_length_flag(1);
-        self.set_internal_data_length_field(&vec![((length & 0xff00) >> 8) as u8, (length) as u8]);
-    }
 }
 
 #[cfg(test)]
@@ -195,10 +180,11 @@ mod tests {
         packet.set_usid_flag(1); // set by set_usid(Some(..))
         packet.set_record_flag(0); // manual
         packet.set_stream_id(0x12345678); // manual
-        packet.set_parent_stream_id(0x12345676); // manual
+        packet.set_parent_stream_id(&vec![0x12345676]); // manual
         packet.set_usid(b"helloiamusidhelloiamusid"); // manual
         packet.set_offset(0x4321); // manual
-        packet.set_data_length(5); // set by set_payload? or manual if we support filling the rest of the packet with data
+        packet.set_data_length_flag(1);
+        packet.set_data_length(&vec![5]); // set by set_payload? or manual if we support filling the rest of the packet with data
         packet.set_payload(b"hello");
 
         assert_eq!(packet.get_internal_offset_field().len(), 2); // Check internal representation length
