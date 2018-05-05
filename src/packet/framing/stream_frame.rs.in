@@ -162,10 +162,11 @@ impl<'a> StreamFramePacket<'a> {
 }
 
 impl<'a> MutableStreamFramePacket<'a> {
-    pub fn init_owned(buffer: Vec<u8>) -> Option<Self> {
+    pub fn init_owned(buffer: Vec<u8>, is_datagram: bool) -> Option<Self> {
         let mut packet = Self::owned(buffer)?;
         packet.set_frame_type(FrameTypes::STREAM);
         packet.set_zeros(0);
+        packet.set_no_ack_flag(if is_datagram { 1 } else { 0 });
         Some(packet)
     }
 
@@ -222,10 +223,8 @@ mod tests {
 
     #[test]
     fn assemble_stream_frame_header() {
-        let mut packet = MutableStreamFramePacket::init_owned(vec![0; 64]).unwrap();
+        let mut packet = MutableStreamFramePacket::init_owned(vec![0; 64], false).unwrap();
 
-        packet.set_no_ack_flag(0); // datagram flag to ctor
-                                   // packet.set_init_flag(1); // set by set_parent_stream_id
         packet.set_fini_flag(1); // manual
         packet.set_usid_flag(1); // set by set_usid(Some(..))
         packet.set_record_flag(0); // manual
