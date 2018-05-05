@@ -145,6 +145,13 @@ impl<'a> StreamFramePacket<'a> {
 }
 
 impl<'a> MutableStreamFramePacket<'a> {
+    pub fn init_owned(buffer: Vec<u8>) -> Option<Self> {
+        let mut packet = Self::owned(buffer)?;
+        packet.set_frame_type(FrameTypes::STREAM);
+        packet.set_zeros(0);
+        Some(packet)
+    }
+
     pub fn get_offset(&self) -> Option<usize> {
         offset_fn_int(&self.to_immutable())
     }
@@ -180,8 +187,8 @@ mod tests {
 
     #[test]
     fn assemble_stream_frame_header() {
-        let mut buf = vec![0; 10];
-        let packet = StreamFramePacket::new(&mut buf[..]);
+        let mut packet = MutableStreamFramePacket::init_owned(vec![0; 64]).unwrap();
+
         packet.set_no_ack_flag(0); // datagram flag to ctor
         packet.set_init_flag(1); // manual
         packet.set_fini_flag(1); // manual
