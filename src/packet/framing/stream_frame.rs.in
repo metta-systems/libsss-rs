@@ -85,6 +85,21 @@ fn off_fn<'a>(frame: &StreamFramePacket<'a>) -> usize {
     }
 }
 
+// These macros don't work because there's no way to concat_idents!() in rust so that the new
+// generated name is suitable for declaring and/or calling a fn name. Until rust macros add
+// a way to work with composable identifier names, we implement it manually.
+//
+// macro_rules! varsized_accessor {
+//     ($field:ident, $count:expr) => {{
+//         let mut v: usize = 0;
+//         let slice = self.$field();
+//         for i in 0..$count {
+//             v = (v << 8) | slice[i] as usize;
+//         }
+//         Some(v)
+//     }};
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
